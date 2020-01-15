@@ -71,6 +71,15 @@ func main() {
 		c.String(http.StatusOK, "Hello Geektutu\n")
 	})
 
+	r.GET("/t1/id", func(c *gee.Context) {
+		c.String(http.StatusOK, "id static")
+	})
+
+	r.GET("/t1/:id", func(c *gee.Context) {
+		id := c.Param("id")
+		c.String(http.StatusOK, "id: %s :", id)
+	})
+
 	r.GET("/test1/:name/test2", func(c *gee.Context) {
 		x := c.Param("name")
 		c.String(http.StatusOK, x)
@@ -81,22 +90,27 @@ func main() {
 		c.String(http.StatusOK, x)
 	})
 
-	r.GET("/re1/{id:\\d+}", func(c *gee.Context) {
+	r.GET("/re1/#id:\\d+", func(c *gee.Context) {
 		id:= c.Param("id")
 		c.String(http.StatusOK, "re1 id: %s", id)
 	})
 
-	r.GET("/re2/{id:[a-z]+}", func(c *gee.Context) {
+	r.GET("/re2/#id:[a-z]+", func(c *gee.Context) {
 		id:= c.Param("id")
 		c.String(http.StatusOK, "re2 id: %s", id)
 	})
 
-	r.GET("/re3/{year:[12][0-9]{3}}/{month:[1-9]{2}}/{day:[1-9]{2}}/{hour:(12|[3-9])}", func(c *gee.Context) {
+	r.GET("/re3/#year:[12][0-9]{3}/#month:[1-9]{2}/#day:[1-9]{2}/#hour:(12|[3-9])", func(c *gee.Context) {
 		year := c.Param("year")
 		month := c.Param("month")
 		day := c.Param("day")
 		hour := c.Param("hour")
 		c.String(http.StatusOK, "re3 year: %s, month: %s, day: %s, hour: %s", year, month, day, hour)
+	})
+
+	r.GET("/re2/#id:[a-z]+/test", func(c *gee.Context) {
+		id:= c.Param("id")
+		c.String(http.StatusOK, "re2 id: %s test", id)
 	})
 
 	// index out of range for testing Recovery()

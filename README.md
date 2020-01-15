@@ -1724,8 +1724,8 @@ func (n *node) insert(pattern string, parts []string, height int) {
 	part := parts[height]
 	child := n.matchChild(part)
 	if child == nil {
-		// (part[0] == '{' && part[len(part) - 1] == '}') 用于正则匹配
-		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*' || (part[0] == '{' && part[len(part) - 1] == '}')}
+		// part[0] == '#' 用于正则匹配
+		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*' || part[0] == '#'}
 		n.children = append(n.children, child)
 	}
 	child.insert(pattern, parts, height+1)
@@ -1757,8 +1757,8 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 			}
 			
 			// 正则匹配
-			if part[0] == '{' && part[len(part) - 1] == '}' {
-				splitPart := strings.Split(part[1:len(part)-1], ":")
+			if part[0] == '#' {
+				splitPart := strings.Split(part[1:], ":")
 				rePattern := splitPart[1]
 				if rePattern[0] != '^' {
 					rePattern = "^" + rePattern
@@ -1784,17 +1784,17 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 
 使用方法：
 ```
-r.GET("/re1/{id:\\d+}", func(c *gee.Context) {
+r.GET("/re1/#id:\\d+", func(c *gee.Context) {
 	id:= c.Param("id")
 	c.String(http.StatusOK, "re1 id: %s", id)
 })
 
-r.GET("/re2/{id:[a-z]+}", func(c *gee.Context) {
+r.GET("/re2/#id:[a-z]+", func(c *gee.Context) {
 	id:= c.Param("id")
 	c.String(http.StatusOK, "re2 id: %s", id)
 })
 
-r.GET("/re3/{year:[12][0-9]{3}}/{month:[1-9]{2}}/{day:(12|[3-9])}", func(c *gee.Context) {
+r.GET("/re3/#year:[12][0-9]{3}/#month:[1-9]{2}/#day:(12|[3-9])", func(c *gee.Context) {
 	year := c.Param("year")
 	month := c.Param("month")
 	day := c.Param("day")

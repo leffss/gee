@@ -134,7 +134,7 @@ func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileS
 			c.Status(http.StatusNotFound)
 			return
 		}
-		fileServer.ServeHTTP(c.Writer, c.Req)
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	}
 }
 
@@ -160,14 +160,14 @@ func (engine *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, engine)
 }
 
-func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (engine *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var middlewares []HandlerFunc
 	for _, group := range engine.groups {
-		if strings.HasPrefix(req.URL.Path, group.prefix) {
+		if strings.HasPrefix(r.URL.Path, group.prefix) {
 			middlewares = append(middlewares, group.middlewares...)
 		}
 	}
-	c := newContext(w, req)
+	c := newContext(w, r)
 	c.handlers = middlewares
 	c.engine = engine
 	engine.router.handle(c)
