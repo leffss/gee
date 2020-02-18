@@ -1,11 +1,18 @@
 package gee
 
 import (
+	"context"
 	"html/template"
 	"log"
 	"net/http"
 	"path"
 	"strings"
+	"time"
+)
+
+var (
+	ReadTimeout time.Duration = time.Second * 30
+	WriteTimeout time.Duration = time.Second * 30
 )
 
 // HandlerFunc defines the request handler used by gee
@@ -26,8 +33,17 @@ type (
 		groups        []*RouterGroup     // store all groups
 		htmlTemplates *template.Template // for html render
 		funcMap       template.FuncMap   // for html render
+		server *http.Server
 	}
 )
+
+func SetReadTimeout(second int) {
+	ReadTimeout = time.Second * time.Duration(second)
+}
+
+func SetWriteTimeout(second int) {
+	WriteTimeout = time.Second * time.Duration(second)
+}
 
 // New is the constructor of gee.Engine
 func New() *Engine {
@@ -134,7 +150,7 @@ func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileS
 			c.Status(http.StatusNotFound)
 			return
 		}
-		fileServer.ServeHTTP(c.Writer, c.Request)
+		fileServer.ServeHTTP(c.Writer, c.Req)
 	}
 }
 
@@ -157,17 +173,41 @@ func (engine *Engine) LoadHTMLGlob(pattern string) {
 
 // Run defines the method to start a http server
 func (engine *Engine) Run(addr string) (err error) {
-	return http.ListenAndServe(addr, engine)
+	server := &http.Server{
+		Addr:addr,
+		ReadTimeout:ReadTimeout,
+		WriteTimeout:WriteTimeout,
+		Handler:engine,
+	}
+	engine.server = server
+	return server.ListenAndServe()
 }
 
-func (engine *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (engine *Engine) RunTLS(addr, ca, key string) (err error) {
+	server := &http.Server{
+		Addr:addr,
+		ReadTimeout:ReadTimeout,
+		WriteTimeout:WriteTimeout,
+		Handler:engine,
+	}
+	engine.server = server
+	return server.ListenAndServeTLS(ca, key)
+}
+
+func (engine *Engine) Shutdown() (err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	return engine.server.Shutdown(ctx)
+}
+
+func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var middlewares []HandlerFunc
 	for _, group := range engine.groups {
-		if strings.HasPrefix(r.URL.Path, group.prefix) {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
 			middlewares = append(middlewares, group.middlewares...)
 		}
 	}
-	c := newContext(w, r)
+	c := newContext(w, req)
 	c.handlers = middlewares
 	c.engine = engine
 	engine.router.handle(c)

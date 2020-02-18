@@ -3,7 +3,6 @@ package gee
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -13,7 +12,7 @@ type H map[string]interface{}
 type Context struct {
 	// origin objects
 	Writer http.ResponseWriter
-	Request    *http.Request
+	Req    *http.Request
 	// request info
 	Path   string
 	Method string
@@ -22,18 +21,18 @@ type Context struct {
 	StatusCode int
 	// middleware
 	handlers []HandlerFunc
-	index    int8
+	index    int
 	// engine pointer
 	engine *Engine
 	// Keys is a key/value pair exclusively for the context of each request.
 	Keys map[string]interface{}
 }
 
-func newContext(w http.ResponseWriter, r *http.Request) *Context {
+func newContext(w http.ResponseWriter, req *http.Request) *Context {
 	return &Context{
-		Path:   r.URL.Path,
-		Method: r.Method,
-		Request:    r,
+		Path:   req.URL.Path,
+		Method: req.Method,
+		Req:    req,
 		Writer: w,
 		index:  -1,
 		Keys: nil,
@@ -42,14 +41,14 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 
 func (c *Context) Next() {
 	c.index++
-	s := int8(len(c.handlers))
+	s := len(c.handlers)
 	for ; c.index < s; c.index++ {
 		c.handlers[c.index](c)
 	}
 }
 
 func (c *Context) Fail(code int, err string) {
-	c.index = int8(len(c.handlers))
+	c.index = len(c.handlers)
 	c.JSON(code, H{"message": err})
 }
 
@@ -59,11 +58,11 @@ func (c *Context) Param(key string) string {
 }
 
 func (c *Context) PostForm(key string) string {
-	return c.Request.FormValue(key)
+	return c.Req.FormValue(key)
 }
 
 func (c *Context) Query(key string) string {
-	return c.Request.URL.Query().Get(key)
+	return c.Req.URL.Query().Get(key)
 }
 
 func (c *Context) Status(code int) {
@@ -75,13 +74,15 @@ func (c *Context) SetHeader(key string, value string) {
 	c.Writer.Header().Set(key, value)
 }
 
+func (c *Context) GetHeader(key string) string {
+	header := c.Req.Header.Get(key)
+	return header
+}
+
 func (c *Context) String(code int, format string, values ...interface{}) {
 	c.Status(code)
 	c.SetHeader("Content-Type", "text/plain")
-	if _, err := c.Writer.Write([]byte(fmt.Sprintf(format, values...))); err != nil {
-		log.Printf("%s", err.Error())
-		c.Fail(http.StatusInternalServerError, "Internal Server Error")
-	}
+	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
 func (c *Context) JSON(code int, obj interface{}) {
@@ -89,17 +90,13 @@ func (c *Context) JSON(code int, obj interface{}) {
 	c.SetHeader("Content-Type", "application/json")
 	encoder := json.NewEncoder(c.Writer)
 	if err := encoder.Encode(obj); err != nil {
-		log.Printf("%s", err.Error())
-		c.Fail(http.StatusInternalServerError, "Internal Server Error")
+		http.Error(c.Writer, err.Error(), 500)
 	}
 }
 
 func (c *Context) Data(code int, data []byte) {
 	c.Status(code)
-	if _, err := c.Writer.Write(data); err != nil {
-		log.Printf("%s", err.Error())
-		c.Fail(http.StatusInternalServerError, "Internal Server Error")
-	}
+	c.Writer.Write(data)
 }
 
 // HTML template render
@@ -108,8 +105,7 @@ func (c *Context) HTML(code int, name string, data interface{}) {
 	c.Writer.WriteHeader(code)
 	c.Writer.Header().Set("Content-Type", "text/html")
 	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
-		log.Printf("%s", err.Error())
-		c.Fail(http.StatusInternalServerError, "Internal Server Error")
+		c.Fail(http.StatusInternalServerError, err.Error())
 	}
 }
 
@@ -160,7 +156,7 @@ func (c *Context) SetCookie(name, value string, maxAge int, path, domain string,
 // If multiple cookies match the given name, only one cookie will
 // be returned.
 func (c *Context) Cookie(name string) (string, error) {
-	cookie, err := c.Request.Cookie(name)
+	cookie, err := c.Req.Cookie(name)
 	if err != nil {
 		return "", err
 	}

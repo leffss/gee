@@ -69,8 +69,8 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 			}
 
 			// 正则匹配
-			if part[0] == '#' {
-				splitPart := strings.Split(part[1:], ":")
+			if part[0] == '{' && part[len(part) - 1] == '}' {
+				splitPart := strings.Split(part[1:len(part)-1], ":")
 				rePattern := splitPart[1]
 				if rePattern[0] != '^' {
 					rePattern = "^" + rePattern

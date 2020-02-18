@@ -26,7 +26,7 @@ func (n *node) insert(pattern string, parts []string, height int) {
 	child := n.matchChild(part)
 	if child == nil {
 		// (part[0] == '{' && part[len(part) - 1] == '}') 用于正则匹配
-		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*' || part[0] == '#'}
+		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*' || (part[0] == '{' && part[len(part) - 1] == '}')}
 		n.children = append(n.children, child)
 	}
 	child.insert(pattern, parts, height+1)
@@ -53,7 +53,7 @@ func (n *node) search(parts []string, height int) *node {
 	return nil
 }
 
-func (n *node) travel(list *[]*node) {
+func (n *node) travel(list *([]*node)) {
 	if n.pattern != "" {
 		*list = append(*list, n)
 	}
