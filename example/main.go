@@ -40,7 +40,7 @@ import (
 	"os/signal"
 	"time"
 
-	"gee/gee"
+	"github.com/leffss/gee"
 )
 
 func Test(v string) gee.HandlerFunc {
